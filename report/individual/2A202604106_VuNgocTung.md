@@ -1,8 +1,8 @@
 # Báo cáo cá nhân — Day 01: Lọc tin nhắn rác bằng ML, DL, Embedding và LLM
 
-- **MSSV:** [Điền MSSV]
-- **Họ và tên:** [Điền họ tên]
-- **SEED:** [Điền SEED trong notebook]
+- **MSSV:** 2A202604106
+- **Họ và tên:** Vũ Ngọc Tùng
+- **SEED:** [4051
 
 ## 1. Bằng chứng
 
@@ -10,7 +10,7 @@
 |---|---|
 | `day01_lab.ipynb` — notebook đã chạy, còn output | ✅ |
 | `lab1_report.json` — do ô "Báo cáo cuối" sinh ra | ✅ |
-| `hand_calc.jpg` — ảnh tính tay có các bước | ✅ |
+| `hand_calc.jpg` — ảnh tính tay có các bước | X |
 
 ## 2. Kết quả chính
 
