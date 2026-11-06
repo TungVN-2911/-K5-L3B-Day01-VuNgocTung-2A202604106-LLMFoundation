@@ -48,12 +48,35 @@ Thiếu dự đoán: ['llm_fewshot', 'tradeoff', 'hard_eval']
 
 ## 3. Dự đoán và thực tế
 
-| Dự đoán | Kết quả thực tế | Vì sao lệch |
-|---|---|---|
-| Encoder + LogReg (Phần 3b) đoán đúng nhiều hơn vì Embedding nắm bắt ngữ nghĩa và ngữ cảnh tốt hơn BoW, có thể nhận diện spam dù né từ khóa hoặc phân biệt từ khóa spam trong ngữ cảnh vô hại. | BoW đúng 5/6 · Encoder+LogReg đúng 6/6 |
+| Dự đoán | Tôi đoán | Thực tế | Vì sao lệch |
+|---|---|---|---|
+| `dl_curve` (MLP so với LogReg) | Val loss chững hoặc tăng do overfitting; MLP bằng hoặc kém LogReg | Val loss thấp nhất ở epoch 4/30 (vế overfitting đúng). MLP F1 **0.949** (recall 0.904), cao hơn LogReg **0.888** (recall 0.798) | Tôi gộp "overfit" với "F1 kém". Val loss tăng chỉ cho thấy mô hình quá tự tin ở các tin sai, còn F1 dùng ngưỡng 0.5 nên vẫn cao. LogReg tự code mới là bên underfit: recall trên chính tập train chỉ 0.81 |
+| `dl_relu` (bỏ `nn.ReLU()`) | Hai lớp Linear thu về một lớp Linear, nên F1 gần LogReg (~0.888) | F1 không ReLU = **0.949**, giống hệt bản có ReLU | Lý thuyết đúng (hàm vẫn tuyến tính), nhưng cùng lớp hàm không có nghĩa cùng kết quả huấn luyện. Hai bên khác cách tối ưu: Adam + mini-batch 64 (30 epoch) so với gradient descent thuần lr=0.5 (300 epoch). Khoảng cách đến từ tối ưu hoá, không phải tính phi tuyến |
+| `ml_lr` (lr = 50) | Loss giảm rất nhanh nhưng có thể dao động hoặc không hội tụ | Loss bật lên ~2.5 ở bước đầu, rơi về ~0.1 sau vài epoch, kết thúc **0.010**, không dao động (lr=0.001: 0.630; lr=0.5: 0.098) | Loss logistic là hàm lồi và mỗi từ xuất hiện trong rất ít tin nên gradient từng trọng số nhỏ, lr=50 chỉ như một bước vừa phải. Cú vọt 2.5 do bias: bước đầu `mean(error) ≈ 0.37`, nhân 50 làm b nhảy xuống ~−18, mô hình đoán toàn ham nên loss tạm tăng rồi tự điều chỉnh. Đây là loss train, chưa chứng minh tổng quát hoá tốt hơn |
 
 ## 4. Phân tích 50 case khó
-Nhận xét: Tập dữ liệu khó giúp kiểm tra khả năng nhận diện spam trong những tình huống phức tạp mà tập test thông thường có thể chưa thể hiện đầy đủ.
+
+Model tụt nhiều nhất: BoW + LogReg. F1 giảm từ 0.888 (test thường) xuống 0.378 trên 50 case khó. Accuracy còn 54%, precision 0.875 nhưng recall chỉ 0.241 (bắt được 7/29 spam).
+
+Nhóm tụt nhiều nhất:
+
+manipulation: đúng 1/8.
+natural_spam: đúng 2/10.
+obfuscation: đúng 2/6.
+prompt_injection: đúng 3/6.
+ham_looks_spam (10/10) và talks_about_spam (4/4) đúng hết, nhưng không phải vì mô hình hiểu ngữ cảnh. Bias học được là −3.01 nên mô hình nghiêng hẳn về ham, gặp gì lạ cũng đoán ham.
+
+Case #21 (manipulation, thật = spam, đoán = ham): “Hi Mum, I dropped my phone in the toilet, this is my new number. Can you send £200 to my friend’s account? I’ll explain later x”
+
+Không có từ khoá spam nào đủ mạnh, £200 có trọng số ≈ 0. Các từ trọng số lớn lại kéo về ham: i (−1.30), my (−0.70). Tổng điểm z = −3.51, p(spam) ≈ 0.03.
+Cơ chế: BoW chỉ cộng trọng số từng từ nên không nhận ra ý đồ giả danh người thân để xin tiền. Spam lừa đảo viết bằng giọng đời thường, trùng từ vựng với ham.
+
+Case #29 (obfuscation, thật = spam, đoán = ham): “C0ngr4tulat10ns! Y0u h4ve w0n a £1000 g1ft c4rd. Cl4im n0w at w1n-gift.c0m”
+
+Hầu hết token bị thay số nên không có trong vocab. Chỉ còn 3 token nhận ra được: a (+0.51), £1000 (≈ 0), at (−0.35). Mô hình gần như không có feature spam nào, z = −2.85 chủ yếu đến từ bias, p(spam) ≈ 0.055.
+Cơ chế: vocab đóng cứng từ tập train. Chữ bị biến dạng thành token lạ (OOV) và bị bỏ qua, nên chỉ cần đổi vài ký tự là qua mặt được.
+
+Ghi chú về mức độ kiểm chứng: API key Gemini liên tục hết quota (lỗi 429, free tier 15 request/phút) nên phần LLM chưa chạy được. Kết quả 50 case khó của MLP, Embedding và LLM cũng chưa được chạy trong notebook, nên kết luận “BoW + LogReg tụt nhiều nhất” mới được kiểm chứng trên BoW + LogReg, chưa so sánh được với các model còn lại. Dự kiến (chưa đo): các model dùng embedding sẽ tụt ít hơn nhưng vẫn yếu ở manipulation và natural_spam, còn LLM có thể yếu ở prompt_injection.
 
 ## 5. Thử thách cá nhân
 - Không thực hiện
