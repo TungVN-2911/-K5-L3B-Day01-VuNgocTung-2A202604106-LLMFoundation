@@ -2,7 +2,7 @@
 
 - **MSSV:** 2A202604106
 - **Họ và tên:** Vũ Ngọc Tùng
-- **SEED:** [4051
+- **SEED:** 4051
 
 ## 1. Bằng chứng
 
